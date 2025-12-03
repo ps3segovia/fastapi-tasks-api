@@ -1,3 +1,31 @@
-__pycache__/
+# Виртуальные окружения
 venv/
+env/
+ENV/
+.venv/
+.env
+
+# Скомпилированный Python-код
+__pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Локальные конфигурации
+.env
+.env.local
+.env.*.local
+
+# IDE / редакторы
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Логи и временные файлы
+*.log
+*.tmp
