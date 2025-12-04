@@ -1,15 +1,10 @@
-from fastapi import FastAPI
+from fastapi import  APIRouter, HTTPException
 from typing import Annotated
 from pydantic import BaseModel, StringConstraints
 from typing_extensions import Annotated
 
-class TaskCreate(BaseModel):
-    title: Annotated[
-        str,
-        StringConstraints(min_length=1, max_length=100)
-    ]
 
-app = FastAPI()
+router = APIRouter()
 
 # Временное хранилище задач (в памяти)
 tasks = [
@@ -17,19 +12,25 @@ tasks = [
     {"id": 2, "title": "Build a pet project", "done": True},
 ]
 
-@app.get('/')
+class TaskCreate(BaseModel):
+    title: Annotated[
+        str,
+        StringConstraints(min_length=1, max_length=100)
+    ]
+
+@router.get('/')
 def read_root():
     return {"message": "Welcome to Tasks API!"}
 
-@app.get("/hello/{name}")
+@router.get("/hello/{name}")
 def say_hello(name: Annotated[str, StringConstraints(min_length=2, max_length=20)]):
     return {"message:": f"hello {name}!"}
 
-@app.get("/tasks")
+@router.get("/tasks")
 def get_tasks():
     return tasks
 
-@app.post("/tasks")
+@router.post("/tasks")
 def create_task(task: TaskCreate):
     # Генерируем новый ID (простой способ — взять макс ID + 1)
     new_id = max(task["id"] for task in tasks) + 1 if tasks else 1
@@ -45,3 +46,11 @@ def create_task(task: TaskCreate):
     tasks.append(new_task)
     
     return new_task
+
+@router.delete("/tasks/{task_id}")
+def delete_task(task_id: int):
+    for i, task in enumerate(tasks):
+        if task["id"] == task_id:
+            tasks.pop(i)
+            return {"message": f"Task {task_id} deleted"}
+    raise HTTPException(status_code=404, detail="Task not found")
