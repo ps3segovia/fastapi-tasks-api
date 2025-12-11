@@ -9,7 +9,7 @@ router = APIRouter()
 # Временное хранилище задач (в памяти)
 tasks = [
     {"id": 1, "title": "Learn FastAPI", "done": False},
-    {"id": 2, "title": "Build a pet project", "done": True},
+    {"id": 2, "title": "Build a pet project", "done": False},
 ]
 
 class TaskCreate(BaseModel):
@@ -17,6 +17,9 @@ class TaskCreate(BaseModel):
         str,
         StringConstraints(min_length=1, max_length=100)
     ]
+
+class TaskUpdate(BaseModel):
+    done: bool
 
 @router.get('/')
 def read_root():
@@ -47,6 +50,14 @@ def create_task(task: TaskCreate):
     
     return new_task
 
+@router.patch("/tasks/{task_id}")
+def update_task(task_id: int, task_update: TaskUpdate):
+    for task in tasks:
+        if task["id"] == task_id:
+            task["done"] = task_update.done
+            return task
+    raise HTTPException(status_code=404, detail="Task not found")
+
 @router.delete("/tasks/{task_id}")
 def delete_task(task_id: int):
     for i, task in enumerate(tasks):
@@ -54,3 +65,4 @@ def delete_task(task_id: int):
             tasks.pop(i)
             return {"message": f"Task {task_id} deleted"}
     raise HTTPException(status_code=404, detail="Task not found")
+
