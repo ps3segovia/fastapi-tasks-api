@@ -1,68 +1,60 @@
-from fastapi import  APIRouter, HTTPException
-from typing import Annotated
-from pydantic import BaseModel, StringConstraints
-from typing_extensions import Annotated
+# app/routes.py
 
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from app import models, schemas
+from app.database import SessionLocal
 
 router = APIRouter()
 
-# Временное хранилище задач (в памяти)
-tasks = [
-    {"id": 1, "title": "Learn FastAPI", "done": False},
-    {"id": 2, "title": "Build a pet project", "done": False},
-]
+# Зависимость: получаем сессию БД для каждого запроса
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-class TaskCreate(BaseModel):
-    title: Annotated[
-        str,
-        StringConstraints(min_length=1, max_length=100)
-    ]
-
-class TaskUpdate(BaseModel):
-    done: bool
-
-@router.get('/')
-def read_root():
-    return {"message": "Welcome to Tasks API!"}
+@router.get("/")
+def home():
+    return {"message": "Hello from Tasks API!"}
 
 @router.get("/hello/{name}")
-def say_hello(name: Annotated[str, StringConstraints(min_length=2, max_length=20)]):
-    return {"message:": f"hello {name}!"}
+def say_hello(name: str):
+    if len(name) < 2 or len(name) > 20:
+        raise HTTPException(status_code=422, detail="Name must be 2-20 characters")
+    return {"message": f"Hello, {name}!"}
+
+# --- CRUD для задач ---
 
 @router.get("/tasks")
-def get_tasks():
+def get_tasks(db: Session = Depends(get_db)):
+    tasks = db.query(models.Task).all()
     return tasks
 
 @router.post("/tasks")
-def create_task(task: TaskCreate):
-    # Генерируем новый ID (простой способ — взять макс ID + 1)
-    new_id = max(task["id"] for task in tasks) + 1 if tasks else 1
-    
-    # Создаём новую задачу
-    new_task = {
-        "id": new_id,
-        "title": task.title,
-        "done": False
-    }
-    
-    # Сохраняем в памяти
-    tasks.append(new_task)
-    
-    return new_task
+def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
+    db_task = models.Task(title=task.title)
+    db.add(db_task)
+    db.commit()
+    db.refresh(db_task)  # чтобы получить id после вставки
+    return db_task
 
 @router.patch("/tasks/{task_id}")
-def update_task(task_id: int, task_update: TaskUpdate):
-    for task in tasks:
-        if task["id"] == task_id:
-            task["done"] = task_update.done
-            return task
-    raise HTTPException(status_code=404, detail="Task not found")
+def update_task(task_id: int, task_update: schemas.TaskUpdate, db: Session = Depends(get_db)):
+    db_task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if db_task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    db_task.done = task_update.done
+    db.commit()
+    db.refresh(db_task)
+    return db_task
 
 @router.delete("/tasks/{task_id}")
-def delete_task(task_id: int):
-    for i, task in enumerate(tasks):
-        if task["id"] == task_id:
-            tasks.pop(i)
-            return {"message": f"Task {task_id} deleted"}
-    raise HTTPException(status_code=404, detail="Task not found")
-
+def delete_task(task_id: int, db: Session = Depends(get_db)):
+    db_task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if db_task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    db.delete(db_task)
+    db.commit()
+    return {"message": f"Task {task_id} deleted"}

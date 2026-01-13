@@ -34,3 +34,5 @@ htmlcov/
 # Логи и временные файлы
 *.log
 *.tmp
+
+tasks.db
